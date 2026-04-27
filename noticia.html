@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OCT News</title>
+  <link rel="icon" href="favicon.ico">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body data-page="article">
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <span data-school-name>Escola Estadual Orlando da Costa Telles</span>
+      <span id="currentDate">Atualizado hoje</span>
+    </div>
+  </header>
+
+  <nav class="main-nav">
+    <div class="shell main-nav-inner">
+      <a class="brand" href="index.html">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div>
+          <strong data-site-name>OCT News</strong>
+          <span data-site-description>Portal de editorias do entorno escolar</span>
+        </div>
+      </a>
+      <div class="nav-links" id="navLinks"></div>
+    </div>
+  </nav>
+
+  <main class="shell article-shell">
+    <div class="breadcrumb" id="articleBreadcrumb"></div>
+
+    <section class="article-hero-card">
+      <div class="article-hero-media" id="articleCover"></div>
+      <div class="article-hero-copy">
+        <span class="eyebrow" id="articleCategoryTag">Editorias</span>
+        <h1 id="articleTitle">Carregando matéria...</h1>
+        <p id="articleSummary"></p>
+        <div class="meta-row" id="articleMeta"></div>
+      </div>
+    </section>
+
+    <section class="article-layout">
+      <article class="article-content" id="articleContent"></article>
+      <aside class="article-rail">
+        <div class="rail-card">
+          <span class="section-kicker">Contexto</span>
+          <h3>Leitura orientada</h3>
+          <p id="articleRailText">A matéria está sendo preparada.</p>
+        </div>
+        <div class="rail-card dark">
+          <span class="section-kicker">Mapa da editoria</span>
+          <ul class="rail-list" id="articleRailList">
+            <li>Carregando informações complementares...</li>
+          </ul>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner">
+      <div>
+        <strong data-site-name>OCT News</strong><br>
+        <span data-footer-text>Cobertura local da Editora OCT.</span>
+      </div>
+      <div>Portal escolar e comunitário</div>
+    </div>
+  </footer>
+
+  <script src="site.js"></script>
+</body>
+</html>

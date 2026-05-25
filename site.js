@@ -1,3 +1,7 @@
+const SERVER =
+"https://octotavio.github.io/OCT-feira-de-ciencias-2026-servidor";
+const SERVER_JSON = `${SERVER}/server.json`;
+
 async function fetchJson(path) {
   const response = await fetch(path, { cache: "no-store" });
   if (!response.ok) {

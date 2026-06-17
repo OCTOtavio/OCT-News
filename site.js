@@ -328,7 +328,7 @@ function renderHome(config, newsList) {
 
     header.innerHTML = `
       <span class="section-kicker">
-        Editoria
+        Editorial
       </span>
 
       <h3>

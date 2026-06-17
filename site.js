@@ -497,7 +497,7 @@ function renderCategory(config, newsList) {
     /
 
     <span>
-      ${category || "Editoria"}
+      ${category || "Editorial"}
     </span>
 
     ${subcategory
@@ -521,12 +521,12 @@ function renderCategory(config, newsList) {
     subcategory
       ? `
         As matérias abaixo pertencem
-        à editoria ${category}
+        ao editorial ${category}
         e à subcategoria ${subcategory}.
       `
       : `
         As matérias abaixo pertencem
-        à editoria ${category}.
+        ao editorial ${category}.
       `;
 
   const chips =
@@ -594,7 +594,7 @@ function renderCategory(config, newsList) {
     ${filtered.length}
     matéria${filtered.length === 1 ? "" : "s"}
     encontrada${filtered.length === 1 ? "" : "s"}
-    para esta editoria.
+    para este editorial.
   `;
 
   const featuredMount =
@@ -834,7 +834,7 @@ async function renderArticle(
   railList.replaceChildren();
 
   [
-    `Editoria: ${article.categoria}`,
+    `Editorial: ${article.categoria}`,
 
     article.subcategoria
       ? `Subcategoria: ${article.subcategoria}`

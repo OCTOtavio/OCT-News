@@ -356,7 +356,7 @@ function renderHome(config, newsList) {
       buildCategoryUrl(item.Categoria);
 
     categoryLink.textContent =
-      "Abrir editoria";
+      "Abrir editorial";
 
     chips.appendChild(categoryLink);
 
@@ -1054,7 +1054,7 @@ async function init() {
         "OCT News © 2026",
 
       HeroTitulo:
-        "As editorias que movem a rotina da Orlando da Costa Telles.",
+        "Os editoriais que movem a rotina da Orlando da Costa Telles.",
 
       HeroResumo:
         "Um portal moderno com notícias climáticas, científicas, sociais e acontecimentos que impactam a comunidade escolar.",

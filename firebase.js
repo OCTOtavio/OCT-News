@@ -1,10 +1,27 @@
-import { initializeApp } from "https://gstatic.com";
-import { getFirestore, doc, updateDoc, increment } from "https://gstatic.com";
+// Firebase App
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
 
-// Suas chaves reais copiadas do painel do Firebase
+// Firestore
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  increment
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+// Authentication
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup
+} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+
+// Configuração do Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyCzRMftk4UD76f-wG_VmqAPLtroitbiElM",
-  authDomain: "://firebaseapp.com",
+  apiKey: "AIzaSyCZrMft4UD76F-wG_VmqAPLtro1tbiElM",
+  authDomain: "oct-news-84f17.firebaseapp.com",
   projectId: "oct-news-84f17",
   storageBucket: "oct-news-84f17.firebasestorage.app",
   messagingSenderId: "227674129864",
@@ -12,22 +29,119 @@ const firebaseConfig = {
   measurementId: "G-KXFREF0YQQ"
 };
 
-// Inicializa o Firebase e o Banco de Dados
+// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
+
+// Inicializar Firestore
 const db = getFirestore(app);
 
-// Função que aumenta o contador
+// Inicializar Authentication
+const auth = getAuth(app);
+
+// Provedor Google
+const provider = new GoogleAuthProvider();
+
+
+// ========================================
+// CONTABILIZAR VISUALIZAÇÃO
+// ========================================
+
 export async function incrementarView() {
-  const docRef = doc(db, "stats", "global");
+
   try {
-    await updateDoc(docRef, {
-      views: increment(1)
-    });
-    console.log("View contabilizada com sucesso!");
+
+    // Faz login com Google
+    const resultado = await signInWithPopup(auth, provider);
+
+    // Usuário autenticado
+    const user = resultado.user;
+
+    // ID único da conta Google
+    const uid = user.uid;
+
+    console.log("Usuário:", user.displayName);
+    console.log("UID:", uid);
+
+
+    // Documento que guarda o usuário
+    const userRef = doc(db, "viewers", uid);
+
+    // Procura o usuário no banco
+    const userSnap = await getDoc(userRef);
+
+    const agora = Date.now();
+
+    // 10 minutos em milissegundos
+    const cooldown = 10 * 60 * 1000;
+
+
+    // ========================================
+    // USUÁRIO JÁ EXISTE
+    // ========================================
+
+    if (userSnap.exists()) {
+
+      const dados = userSnap.data();
+
+      const ultimaView = dados.ultimaVisualizacao || 0;
+
+      // Verifica se ainda está no cooldown
+      if (agora - ultimaView < cooldown) {
+
+        console.log(
+          "Visualização não contabilizada. Usuário ainda está no cooldown."
+        );
+
+        return;
+      }
+    }
+
+
+    // ========================================
+    // CONTABILIZAR NOVA VISUALIZAÇÃO
+    // ========================================
+
+    const statsRef = doc(db, "stats", "global");
+
+    await setDoc(
+      statsRef,
+      {
+        views: increment(1)
+      },
+      {
+        merge: true
+      }
+    );
+
+
+    // ========================================
+    // SALVAR DATA DA ÚLTIMA VISUALIZAÇÃO
+    // ========================================
+
+    await setDoc(
+      userRef,
+      {
+        ultimaVisualizacao: agora
+      },
+      {
+        merge: true
+      }
+    );
+
+
+    console.log("Visualização contabilizada!");
+
   } catch (erro) {
-    console.error("Erro ao incrementar:", erro);
+
+    console.error(
+      "Erro ao contabilizar visualização:",
+      erro
+    );
+
   }
+
 }
 
-// Permite usar a função direto no HTML se necessário
+
+// Disponibiliza para o HTML
 window.incrementarView = incrementarView;

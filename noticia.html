@@ -4,85 +4,296 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>OCT News</title>
+
   <link rel="icon" href="favicon.ico">
   <link rel="stylesheet" href="site.css">
 </head>
 
 <body data-page="article">
+
   <header class="topbar">
     <div class="shell topbar-inner">
-      <span data-school-name>Escola Estadual Orlando da Costa Telles</span>
-      <span id="currentDate">Atualizado hoje</span>
+      <span data-school-name>
+        Escola Estadual Orlando da Costa Telles
+      </span>
+
+      <span id="currentDate">
+        Atualizado hoje
+      </span>
     </div>
   </header>
 
+
   <nav class="main-nav">
+
     <div class="shell main-nav-inner">
+
       <a class="brand" href="index.html">
+
         <div class="brand-mark" aria-hidden="true"></div>
+
         <div>
-          <strong data-site-name>OCT News</strong>
-          <span data-site-description>Portal de editoriais do entorno escolar</span>
+
+          <strong data-site-name>
+            OCT News
+          </strong>
+
+          <span data-site-description>
+            Portal de editoriais do entorno escolar
+          </span>
+
         </div>
+
       </a>
+
+
       <div class="nav-links" id="navLinks"></div>
+
     </div>
+
   </nav>
 
+
   <main class="shell article-shell">
-    <div class="breadcrumb" id="articleBreadcrumb"></div>
+
+    <div
+      class="breadcrumb"
+      id="articleBreadcrumb">
+    </div>
+
 
     <section class="article-hero-card">
-      <div class="article-hero-media" id="articleCover"></div>
-      <div class="article-hero-copy">
-        <span class="eyebrow" id="articleCategoryTag">Editoriais</span>
-        <h1 id="articleTitle">Carregando matéria...</h1>
-        <p id="articleSummary"></p>
-        <div class="meta-row" id="articleMeta"></div>
+
+      <div
+        class="article-hero-media"
+        id="articleCover">
       </div>
+
+
+      <div class="article-hero-copy">
+
+        <span
+          class="eyebrow"
+          id="articleCategoryTag">
+          Editoriais
+        </span>
+
+
+        <h1 id="articleTitle">
+          Carregando matéria...
+        </h1>
+
+
+        <p id="articleSummary"></p>
+
+
+        <div
+          class="meta-row"
+          id="articleMeta">
+        </div>
+
+
+        <!-- LOGIN GOOGLE -->
+
+        <div class="view-login">
+
+          <button
+            id="loginGoogle"
+            type="button">
+
+            Entrar com Google para registrar visualização
+
+          </button>
+
+
+          <span
+            id="viewStatus"
+            aria-live="polite">
+          </span>
+
+        </div>
+
+      </div>
+
     </section>
+
 
     <section class="article-layout">
-      <article class="article-content" id="articleContent"></article>
+
+
+      <article
+        class="article-content"
+        id="articleContent">
+      </article>
+
+
       <aside class="article-rail">
+
+
         <div class="rail-card">
-          <span class="section-kicker">Contexto</span>
-          <h3>Leitura orientada</h3>
-          <p id="articleRailText">A matéria está sendo preparada.</p>
+
+          <span class="section-kicker">
+            Contexto
+          </span>
+
+          <h3>
+            Leitura orientada
+          </h3>
+
+          <p id="articleRailText">
+            A matéria está sendo preparada.
+          </p>
+
         </div>
+
+
         <div class="rail-card dark">
-          <span class="section-kicker">Mapa da editorial</span>
-          <ul class="rail-list" id="articleRailList">
-            <li>Carregando informações complementares...</li>
+
+          <span class="section-kicker">
+            Mapa da editorial
+          </span>
+
+
+          <ul
+            class="rail-list"
+            id="articleRailList">
+
+            <li>
+              Carregando informações complementares...
+            </li>
+
           </ul>
+
         </div>
+
+
       </aside>
+
+
     </section>
+
   </main>
 
+
   <footer class="site-footer">
+
     <div class="shell footer-inner">
+
+
       <div>
-        <strong data-site-name>OCT News</strong><br>
-        <span data-footer-text>Cobertura local da Editora OCT.</span>
+
+        <strong data-site-name>
+          OCT News
+        </strong>
+
+        <br>
+
+        <span data-footer-text>
+          Cobertura local da Editora OCT.
+        </span>
+
       </div>
-      <div>Portal escolar e comunitário</div>
+
+
+      <div>
+        Portal escolar e comunitário
+      </div>
+
+
     </div>
+
   </footer>
+
+
+  <!-- SITE -->
 
   <script src="site.js"></script>
 
-  <script type="module" src="firebase.js"></script>
+
+  <!-- FIREBASE -->
 
   <script type="module">
-    import {incrementarView} from "./firebase.js";
 
-    // Executa assim que a página termina de carregar
-    document.addEventListener("DOMContentLoaded", () => {
-      incrementarView();
-    });
+    import {
+      loginGoogle
+    } from "./firebase.js";
+
+
+    const botaoLogin =
+      document.getElementById(
+        "loginGoogle"
+      );
+
+
+    const status =
+      document.getElementById(
+        "viewStatus"
+      );
+
+
+    botaoLogin.addEventListener(
+      "click",
+      async () => {
+
+
+        // Desabilita o botão
+        // para evitar vários cliques
+
+        botaoLogin.disabled = true;
+
+
+        botaoLogin.textContent =
+          "Entrando com Google...";
+
+
+        status.textContent =
+          "";
+
+
+        // Tenta fazer login
+
+        const usuario =
+          await loginGoogle();
+
+
+        // Se o login deu certo
+
+        if (usuario) {
+
+
+          botaoLogin.textContent =
+            "✓ Visualização registrada";
+
+
+          status.textContent =
+            "Obrigado por visitar o OCT News!";
+
+
+        } else {
+
+
+          botaoLogin.disabled =
+            false;
+
+
+          botaoLogin.textContent =
+            "Entrar com Google para registrar visualização";
+
+
+          status.textContent =
+            "Não foi possível fazer o login.";
+
+
+        }
+
+      }
+    );
+
   </script>
+
+
 </body>
 
 </html>

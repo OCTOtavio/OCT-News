@@ -1,24 +1,38 @@
-// Firebase App
+// ============================================================
+// FIREBASE APP
+// ============================================================
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
 
-// Firestore
+
+// ============================================================
+// FIRESTORE
+// ============================================================
+
 import {
   getFirestore,
   doc,
-  getDoc,
-  setDoc,
-  updateDoc,
+  runTransaction,
   increment
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
-// Authentication
+
+// ============================================================
+// FIREBASE AUTHENTICATION
+// ============================================================
+
 import {
   getAuth,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
-// Configuração do Firebase
+
+// ============================================================
+// CONFIGURAÇÃO DO FIREBASE
+// ============================================================
+
 const firebaseConfig = {
   apiKey: "AIzaSyCZrMftk4UD76F-wG_VmqAPLtro1tbiElM",
   authDomain: "oct-news-84f17.firebaseapp.com",
@@ -29,107 +43,349 @@ const firebaseConfig = {
   measurementId: "G-KXFREF0YQQ"
 };
 
-// Inicializar Firebase
+
+// ============================================================
+// INICIALIZAR FIREBASE
+// ============================================================
+
 const app = initializeApp(firebaseConfig);
 
-// Inicializar Firestore
+
+// ============================================================
+// INICIALIZAR FIRESTORE
+// ============================================================
+
 const db = getFirestore(app);
 
-// Inicializar Authentication
+
+// ============================================================
+// INICIALIZAR AUTHENTICATION
+// ============================================================
+
 const auth = getAuth(app);
 
-// Provedor Google
+
+// ============================================================
+// PROVEDOR GOOGLE
+// ============================================================
+
 const provider = new GoogleAuthProvider();
 
 
-// ========================================
+// ============================================================
+// CONFIGURAÇÕES
+// ============================================================
+
+// Cooldown de 10 minutos
+
+const COOLDOWN = 10 * 60 * 1000;
+
+
+// ============================================================
+// USUÁRIO ATUAL
+// ============================================================
+
+let usuarioAtual = null;
+
+
+// ============================================================
+// MONITORAR ESTADO DE LOGIN
+// ============================================================
+
+onAuthStateChanged(auth, (user) => {
+
+  if (user) {
+
+    usuarioAtual = user;
+
+    console.log(
+      "Usuário autenticado:",
+      user.displayName
+    );
+
+    console.log(
+      "UID:",
+      user.uid
+    );
+
+  } else {
+
+    usuarioAtual = null;
+
+    console.log(
+      "Nenhum usuário autenticado."
+    );
+
+  }
+
+});
+
+
+// ============================================================
+// LOGIN COM GOOGLE
+// ============================================================
+
+export async function loginGoogle() {
+
+  try {
+
+    console.log(
+      "Abrindo login do Google..."
+    );
+
+
+    // Abre o popup do Google
+
+    const resultado = await signInWithPopup(
+      auth,
+      provider
+    );
+
+
+    // Usuário autenticado
+
+    usuarioAtual = resultado.user;
+
+
+    console.log(
+      "Login realizado com sucesso!"
+    );
+
+
+    console.log(
+      "Nome:",
+      usuarioAtual.displayName
+    );
+
+
+    console.log(
+      "Email:",
+      usuarioAtual.email
+    );
+
+
+    console.log(
+      "UID:",
+      usuarioAtual.uid
+    );
+
+
+    // Depois do login,
+    // tenta contabilizar a visualização
+
+    await incrementarView();
+
+
+    return usuarioAtual;
+
+
+  } catch (erro) {
+
+    console.error(
+      "Erro ao fazer login com Google:",
+      erro
+    );
+
+
+    return null;
+
+  }
+
+}
+
+
+// ============================================================
 // CONTABILIZAR VISUALIZAÇÃO
-// ========================================
+// ============================================================
 
 export async function incrementarView() {
 
   try {
 
-    // Faz login com Google
-    const resultado = await signInWithPopup(auth, provider);
+    // ========================================================
+    // VERIFICAR SE EXISTE USUÁRIO AUTENTICADO
+    // ========================================================
 
-    // Usuário autenticado
-    const user = resultado.user;
+    if (!usuarioAtual) {
 
-    // ID único da conta Google
-    const uid = user.uid;
+      console.log(
+        "Usuário não autenticado."
+      );
 
-    console.log("Usuário:", user.displayName);
-    console.log("UID:", uid);
+      console.log(
+        "A visualização não será contabilizada."
+      );
 
+      return false;
 
-    // Documento que guarda o usuário
-    const userRef = doc(db, "viewers", uid);
-
-    // Procura o usuário no banco
-    const userSnap = await getDoc(userRef);
-
-    const agora = Date.now();
-
-    // 10 minutos em milissegundos
-    const cooldown = 10 * 60 * 1000;
-
-
-    // ========================================
-    // USUÁRIO JÁ EXISTE
-    // ========================================
-
-    if (userSnap.exists()) {
-
-      const dados = userSnap.data();
-
-      const ultimaView = dados.ultimaVisualizacao || 0;
-
-      // Verifica se ainda está no cooldown
-      if (agora - ultimaView < cooldown) {
-
-        console.log(
-          "Visualização não contabilizada. Usuário ainda está no cooldown."
-        );
-
-        return;
-      }
     }
 
 
-    // ========================================
-    // CONTABILIZAR NOVA VISUALIZAÇÃO
-    // ========================================
+    // ========================================================
+    // UID DO USUÁRIO
+    // ========================================================
 
-    const statsRef = doc(db, "stats", "global");
+    const uid = usuarioAtual.uid;
 
-    await setDoc(
-      statsRef,
-      {
-        views: increment(1)
-      },
-      {
-        merge: true
+
+    console.log(
+      "Verificando visualização para:",
+      uid
+    );
+
+
+    // ========================================================
+    // REFERÊNCIAS DOS DOCUMENTOS
+    // ========================================================
+
+    const userRef = doc(
+      db,
+      "viewers",
+      uid
+    );
+
+
+    const statsRef = doc(
+      db,
+      "stats",
+      "global"
+    );
+
+
+    // ========================================================
+    // HORÁRIO ATUAL
+    // ========================================================
+
+    const agora = Date.now();
+
+
+    // ========================================================
+    // TRANSAÇÃO
+    // ========================================================
+
+    const contabilizou = await runTransaction(
+      db,
+      async (transaction) => {
+
+
+        // ====================================================
+        // LER DOCUMENTO DO USUÁRIO
+        // ====================================================
+
+        const userSnap = await transaction.get(
+          userRef
+        );
+
+
+        // ====================================================
+        // VERIFICAR ÚLTIMA VISUALIZAÇÃO
+        // ====================================================
+
+        if (userSnap.exists()) {
+
+          const dados = userSnap.data();
+
+
+          const ultimaVisualizacao =
+            dados.ultimaVisualizacao || 0;
+
+
+          // ==================================================
+          // VERIFICAR COOLDOWN
+          // ==================================================
+
+          const tempoDesdeUltimaView =
+            agora - ultimaVisualizacao;
+
+
+          if (
+            tempoDesdeUltimaView < COOLDOWN
+          ) {
+
+            console.log(
+              "Visualização não contabilizada."
+            );
+
+
+            console.log(
+              "Usuário ainda está no cooldown de 10 minutos."
+            );
+
+
+            return false;
+
+          }
+
+        }
+
+
+        // ====================================================
+        // INCREMENTAR VISUALIZAÇÕES
+        // ====================================================
+
+        transaction.set(
+          statsRef,
+          {
+            views: increment(1)
+          },
+          {
+            merge: true
+          }
+        );
+
+
+        // ====================================================
+        // ATUALIZAR ÚLTIMA VISUALIZAÇÃO
+        // ====================================================
+
+        transaction.set(
+          userRef,
+          {
+            ultimaVisualizacao: agora,
+            ultimaVisualizacaoISO:
+              new Date(agora).toISOString()
+          },
+          {
+            merge: true
+          }
+        );
+
+
+        // ====================================================
+        // RETORNAR SUCESSO
+        // ====================================================
+
+        return true;
+
       }
     );
 
 
-    // ========================================
-    // SALVAR DATA DA ÚLTIMA VISUALIZAÇÃO
-    // ========================================
+    // ========================================================
+    // RESULTADO
+    // ========================================================
 
-    await setDoc(
-      userRef,
-      {
-        ultimaVisualizacao: agora
-      },
-      {
-        merge: true
-      }
-    );
+    if (contabilizou) {
+
+      console.log(
+        "================================"
+      );
+
+      console.log(
+        "VISUALIZAÇÃO CONTABILIZADA!"
+      );
+
+      console.log(
+        "================================"
+      );
+
+      return true;
+
+    }
 
 
-    console.log("Visualização contabilizada!");
+    return false;
+
 
   } catch (erro) {
 
@@ -138,10 +394,18 @@ export async function incrementarView() {
       erro
     );
 
+
+    return false;
+
   }
 
 }
 
 
-// Disponibiliza para o HTML
+// ============================================================
+// DISPONIBILIZAR FUNÇÕES GLOBALMENTE
+// ============================================================
+
+window.loginGoogle = loginGoogle;
+
 window.incrementarView = incrementarView;

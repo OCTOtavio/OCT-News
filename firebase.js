@@ -20,7 +20,7 @@ import {
 
 // Configuração do Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyCZrMft4UD76F-wG_VmqAPLtro1tbiElM",
+  apiKey: "AIzaSyCZrMftk4UD76F-wG_VmqAPLtro1tbiElM",
   authDomain: "oct-news-84f17.firebaseapp.com",
   projectId: "oct-news-84f17",
   storageBucket: "oct-news-84f17.firebasestorage.app",

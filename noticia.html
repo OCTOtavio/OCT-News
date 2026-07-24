@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
   <link rel="icon" href="favicon.ico">
   <link rel="stylesheet" href="site.css">
 </head>
+
 <body data-page="article">
   <header class="topbar">
     <div class="shell topbar-inner">
@@ -70,5 +72,17 @@
   </footer>
 
   <script src="site.js"></script>
+
+  <script type="module" src="firebase.js"></script>
+
+  <script type="module">
+    import {incrementarView} from "./firebase.js";
+
+    // Executa assim que a página termina de carregar
+    document.addEventListener("DOMContentLoaded", () => {
+      incrementarView();
+    });
+  </script>
 </body>
+
 </html>

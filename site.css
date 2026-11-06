@@ -598,3 +598,19 @@ audio {
     font-size: 18px;
   }
 }
+
+
+/* ===== Contador de visualizações ===== */
+
+.view-counter {
+  margin-top: 14px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  opacity: 0.8;
+}
+
+.views-badge[hidden],
+.view-counter[hidden],
+[data-views-total][hidden] {
+  display: none;
+}

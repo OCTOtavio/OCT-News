@@ -1,0 +1,81 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Caminho do "visto" de um visitante numa notícia
+    function seenDoc(id) {
+      return /databases/$(database)/documents/seen/$(request.auth.uid + '_' + id);
+    }
+
+    // ----------------------------------------------------------
+    // seen: registro "este visitante leu esta notícia em tal hora".
+    // Só pode ser regravado depois de 30 minutos.
+    // Ninguém consegue ler (é só trava anti-spam).
+    // ----------------------------------------------------------
+    match /seen/{key} {
+
+      allow read: if false;
+      allow delete: if false;
+
+      allow create: if request.auth != null
+        && key.matches(request.auth.uid + '_n_[A-Za-z0-9_-]{1,120}')
+        && request.resource.data.keys().hasOnly(['t'])
+        && request.resource.data.t == request.time;
+
+      allow update: if request.auth != null
+        && key.matches(request.auth.uid + '_n_[A-Za-z0-9_-]{1,120}')
+        && request.resource.data.keys().hasOnly(['t'])
+        && request.resource.data.t == request.time
+        && request.time > resource.data.t + duration.value(30, 'm');
+    }
+
+    // ----------------------------------------------------------
+    // Contador de cada notícia: só sobe +1, e só junto com um
+    // "seen" válido gravado no mesmo instante.
+    // ----------------------------------------------------------
+    match /views/{id} {
+
+      allow read: if true;
+      allow delete: if false;
+
+      allow create: if request.auth != null
+        && id.matches('n_[A-Za-z0-9_-]{1,120}')
+        && request.resource.data.keys().hasOnly(['count'])
+        && request.resource.data.count == 1
+        && getAfter(seenDoc(id)).data.t == request.time;
+
+      allow update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['count'])
+        && request.resource.data.count == resource.data.count + 1
+        && getAfter(seenDoc(id)).data.t == request.time;
+    }
+
+    // ----------------------------------------------------------
+    // Total do site: mesma lógica. "ultimoId" aponta qual notícia
+    // foi contada, para conferir o "seen" correspondente.
+    // ----------------------------------------------------------
+    match /stats/global {
+
+      allow read: if true;
+      allow delete: if false;
+
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['views', 'ultimoId'])
+        && request.resource.data.views == 1
+        && request.resource.data.ultimoId.matches('n_[A-Za-z0-9_-]{1,120}')
+        && getAfter(seenDoc(request.resource.data.ultimoId)).data.t == request.time;
+
+      allow update: if request.auth != null
+        && request.resource.data.keys().hasOnly(['views', 'ultimoId'])
+        && request.resource.data.views == resource.data.views + 1
+        && request.resource.data.ultimoId.matches('n_[A-Za-z0-9_-]{1,120}')
+        && getAfter(seenDoc(request.resource.data.ultimoId)).data.t == request.time;
+    }
+
+    // Coleção antiga (login com Google), não é mais usada
+    match /viewers/{uid} {
+      allow read, write: if false;
+    }
+  }
+}

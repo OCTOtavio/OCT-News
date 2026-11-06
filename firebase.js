@@ -1,37 +1,31 @@
 // ============================================================
-// FIREBASE APP
+// FIREBASE + CONTADOR DE VISUALIZAÇÕES
+// ============================================================
+// - Login anônimo e silencioso (o leitor não vê nada, não precisa de Google)
+// - Cada notícia tem o seu contador:  views/{id}  ->  { count }
+// - O total do site fica em:          stats/global -> { views }
+// - Incremento atômico (increment) + trava de 30 min por navegador/notícia
 // ============================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
 
-
-// ============================================================
-// FIRESTORE
-// ============================================================
-
 import {
   getFirestore,
   doc,
-  runTransaction,
-  increment
+  getDoc,
+  getDocs,
+  collection,
+  writeBatch,
+  increment,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-
-
-// ============================================================
-// FIREBASE AUTHENTICATION
-// ============================================================
 
 import {
   getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
+  signInAnonymously,
   onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
-
-// ============================================================
-// CONFIGURAÇÃO DO FIREBASE
-// ============================================================
 
 const firebaseConfig = {
   apiKey: "AIzaSyCZrMftk4UD76F-wG_VmqAPLtro1tbiElM",
@@ -43,369 +37,162 @@ const firebaseConfig = {
   measurementId: "G-KXFREF0YQQ"
 };
 
-
-// ============================================================
-// INICIALIZAR FIREBASE
-// ============================================================
-
 const app = initializeApp(firebaseConfig);
-
-
-// ============================================================
-// INICIALIZAR FIRESTORE
-// ============================================================
-
 const db = getFirestore(app);
-
-
-// ============================================================
-// INICIALIZAR AUTHENTICATION
-// ============================================================
-
 const auth = getAuth(app);
 
 
-// ============================================================
-// PROVEDOR GOOGLE
-// ============================================================
+// Mesma pessoa, mesma notícia: só conta de novo depois de 30 minutos
+const COOLDOWN = 30 * 60 * 1000;
 
-const provider = new GoogleAuthProvider();
-
-
-// ============================================================
-// CONFIGURAÇÕES
-// ============================================================
-
-// Cooldown de 10 minutos
-
-const COOLDOWN = 10 * 60 * 1000;
+const memoria = new Map(); // plano B se o navegador bloquear o localStorage
 
 
-// ============================================================
-// USUÁRIO ATUAL
-// ============================================================
+// ------------------------------------------------------------
+// ID seguro do documento (o slug pode ter caracteres estranhos)
+// ------------------------------------------------------------
+export function idDoc(slug) {
+  return "n_" + String(slug).replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 120);
+}
 
-let usuarioAtual = null;
+
+// ------------------------------------------------------------
+// Login anônimo (reaproveita a sessão se já existir)
+// ------------------------------------------------------------
+async function garantirUsuario() {
+
+  const atual = await new Promise((resolve) => {
+    const parar = onAuthStateChanged(auth, (user) => {
+      parar();
+      resolve(user);
+    });
+  });
+
+  if (atual) return atual;
+
+  const cred = await signInAnonymously(auth);
+  return cred.user;
+}
 
 
-// ============================================================
-// MONITORAR ESTADO DE LOGIN
-// ============================================================
+// ------------------------------------------------------------
+// Trava local: já contei essa notícia há pouco tempo?
+// ------------------------------------------------------------
+function jaContou(id) {
 
-onAuthStateChanged(auth, (user) => {
+  const chave = "oct_view:" + id;
+  let ultimo = 0;
 
-  if (user) {
+  try {
+    ultimo = Number(localStorage.getItem(chave)) || 0;
+  } catch {
+    ultimo = memoria.get(chave) || 0;
+  }
 
-    usuarioAtual = user;
+  return Date.now() - ultimo < COOLDOWN;
+}
 
-    console.log(
-      "Usuário autenticado:",
-      user.displayName
+function marcarContou(id) {
+
+  const chave = "oct_view:" + id;
+  const agora = Date.now();
+
+  memoria.set(chave, agora);
+
+  try {
+    localStorage.setItem(chave, String(agora));
+  } catch { /* sem localStorage: fica só na memória */ }
+}
+
+
+// ------------------------------------------------------------
+// REGISTRAR VISUALIZAÇÃO DE UMA NOTÍCIA
+// Retorna true se contou, false se ignorou ou deu erro.
+//
+// Três escritas atômicas (todas ou nenhuma):
+//   seen/{uid}_{id}  -> marca "este visitante leu isto agora"
+//   views/{id}       -> +1 na notícia
+//   stats/global     -> +1 no total
+// As regras do Firestore só aceitam o +1 se o "seen" respeitar
+// o intervalo de 30 min, então a trava vale mesmo que alguém
+// apague o localStorage ou mexa no código do navegador.
+// ------------------------------------------------------------
+export async function registrarVisualizacao(slug) {
+
+  const id = idDoc(slug);
+
+  try {
+
+    if (jaContou(id)) return false;
+
+    const user = await garantirUsuario();
+
+    const lote = writeBatch(db);
+
+    lote.set(
+      doc(db, "seen", `${user.uid}_${id}`),
+      { t: serverTimestamp() }
     );
 
-    console.log(
-      "UID:",
-      user.uid
+    lote.set(
+      doc(db, "views", id),
+      { count: increment(1) },
+      { merge: true }
     );
+
+    lote.set(
+      doc(db, "stats", "global"),
+      { views: increment(1), ultimoId: id },
+      { merge: true }
+    );
+
+    await lote.commit();
+
+    marcarContou(id);
+
+    return true;
+
+  } catch (erro) {
+
+    // permission-denied = o servidor recusou (ainda no intervalo de 30 min,
+    // ou outra aba contou no mesmo instante). Não insiste de novo.
+    if (erro && erro.code === "permission-denied") {
+      marcarContou(id);
+    }
+
+    console.warn("Contador: visualização não registrada.", erro);
+    return false;
+  }
+}
+
+
+// ------------------------------------------------------------
+// LER CONTAGENS
+// - com slug: só aquela notícia + total (2 leituras)
+// - sem slug: todas as notícias + total
+// ------------------------------------------------------------
+export async function buscarContagens(slug = null) {
+
+  const porNoticia = {};
+
+  const totalSnap = await getDoc(doc(db, "stats", "global"));
+  const total = totalSnap.exists() ? (totalSnap.data().views || 0) : 0;
+
+  if (slug) {
+
+    const id = idDoc(slug);
+    const snap = await getDoc(doc(db, "views", id));
+
+    porNoticia[id] = snap.exists() ? (snap.data().count || 0) : 0;
 
   } else {
 
-    usuarioAtual = null;
+    const todos = await getDocs(collection(db, "views"));
 
-    console.log(
-      "Nenhum usuário autenticado."
-    );
-
+    todos.forEach((d) => {
+      porNoticia[d.id] = d.data().count || 0;
+    });
   }
 
-});
-
-
-// ============================================================
-// LOGIN COM GOOGLE
-// ============================================================
-
-export async function loginGoogle() {
-
-  try {
-
-    console.log(
-      "Abrindo login do Google..."
-    );
-
-
-    // Abre o popup do Google
-
-    const resultado = await signInWithPopup(
-      auth,
-      provider
-    );
-
-
-    // Usuário autenticado
-
-    usuarioAtual = resultado.user;
-
-
-    console.log(
-      "Login realizado com sucesso!"
-    );
-
-
-    console.log(
-      "Nome:",
-      usuarioAtual.displayName
-    );
-
-
-    console.log(
-      "Email:",
-      usuarioAtual.email
-    );
-
-
-    console.log(
-      "UID:",
-      usuarioAtual.uid
-    );
-
-
-    // Depois do login,
-    // tenta contabilizar a visualização
-
-    await incrementarView();
-
-
-    return usuarioAtual;
-
-
-  } catch (erro) {
-
-    console.error(
-      "Erro ao fazer login com Google:",
-      erro
-    );
-
-
-    return null;
-
-  }
-
+  return { total, porNoticia };
 }
-
-
-// ============================================================
-// CONTABILIZAR VISUALIZAÇÃO
-// ============================================================
-
-export async function incrementarView() {
-
-  try {
-
-    // ========================================================
-    // VERIFICAR SE EXISTE USUÁRIO AUTENTICADO
-    // ========================================================
-
-    if (!usuarioAtual) {
-
-      console.log(
-        "Usuário não autenticado."
-      );
-
-      console.log(
-        "A visualização não será contabilizada."
-      );
-
-      return false;
-
-    }
-
-
-    // ========================================================
-    // UID DO USUÁRIO
-    // ========================================================
-
-    const uid = usuarioAtual.uid;
-
-
-    console.log(
-      "Verificando visualização para:",
-      uid
-    );
-
-
-    // ========================================================
-    // REFERÊNCIAS DOS DOCUMENTOS
-    // ========================================================
-
-    const userRef = doc(
-      db,
-      "viewers",
-      uid
-    );
-
-
-    const statsRef = doc(
-      db,
-      "stats",
-      "global"
-    );
-
-
-    // ========================================================
-    // HORÁRIO ATUAL
-    // ========================================================
-
-    const agora = Date.now();
-
-
-    // ========================================================
-    // TRANSAÇÃO
-    // ========================================================
-
-    const contabilizou = await runTransaction(
-      db,
-      async (transaction) => {
-
-
-        // ====================================================
-        // LER DOCUMENTO DO USUÁRIO
-        // ====================================================
-
-        const userSnap = await transaction.get(
-          userRef
-        );
-
-
-        // ====================================================
-        // VERIFICAR ÚLTIMA VISUALIZAÇÃO
-        // ====================================================
-
-        if (userSnap.exists()) {
-
-          const dados = userSnap.data();
-
-
-          const ultimaVisualizacao =
-            dados.ultimaVisualizacao || 0;
-
-
-          // ==================================================
-          // VERIFICAR COOLDOWN
-          // ==================================================
-
-          const tempoDesdeUltimaView =
-            agora - ultimaVisualizacao;
-
-
-          if (
-            tempoDesdeUltimaView < COOLDOWN
-          ) {
-
-            console.log(
-              "Visualização não contabilizada."
-            );
-
-
-            console.log(
-              "Usuário ainda está no cooldown de 10 minutos."
-            );
-
-
-            return false;
-
-          }
-
-        }
-
-
-        // ====================================================
-        // INCREMENTAR VISUALIZAÇÕES
-        // ====================================================
-
-        transaction.set(
-          statsRef,
-          {
-            views: increment(1)
-          },
-          {
-            merge: true
-          }
-        );
-
-
-        // ====================================================
-        // ATUALIZAR ÚLTIMA VISUALIZAÇÃO
-        // ====================================================
-
-        transaction.set(
-          userRef,
-          {
-            ultimaVisualizacao: agora,
-            ultimaVisualizacaoISO:
-              new Date(agora).toISOString()
-          },
-          {
-            merge: true
-          }
-        );
-
-
-        // ====================================================
-        // RETORNAR SUCESSO
-        // ====================================================
-
-        return true;
-
-      }
-    );
-
-
-    // ========================================================
-    // RESULTADO
-    // ========================================================
-
-    if (contabilizou) {
-
-      console.log(
-        "================================"
-      );
-
-      console.log(
-        "VISUALIZAÇÃO CONTABILIZADA!"
-      );
-
-      console.log(
-        "================================"
-      );
-
-      return true;
-
-    }
-
-
-    return false;
-
-
-  } catch (erro) {
-
-    console.error(
-      "Erro ao contabilizar visualização:",
-      erro
-    );
-
-
-    return false;
-
-  }
-
-}
-
-
-// ============================================================
-// DISPONIBILIZAR FUNÇÕES GLOBALMENTE
-// ============================================================
-
-window.loginGoogle = loginGoogle;
-
-window.incrementarView = incrementarView;

@@ -16,6 +16,11 @@ async function fetchJson(path) {
   return response.json();
 }
 
+function markReady() {
+  document.body.dataset.ready = "1";
+  document.dispatchEvent(new Event("oct:ready"));
+}
+
 function formatDate(value) {
   if (!value) return "Data não informada";
 
@@ -238,6 +243,12 @@ function createStoryCard(news) {
     <div class="meta-row">
       <span class="meta-badge">
         ${formatDate(news.data)}
+      </span>
+
+      <span
+        class="meta-badge views-badge"
+        data-views-slug="${news.slug}"
+        hidden>
       </span>
     </div>
   `;
@@ -1083,6 +1094,8 @@ async function init() {
         newsList
       );
 
+      markReady();
+
       return;
     }
 
@@ -1092,6 +1105,8 @@ async function init() {
         config,
         newsList
       );
+
+      markReady();
 
       return;
     }
@@ -1117,6 +1132,8 @@ async function init() {
         config,
         article
       );
+
+      markReady();
     }
 
   } catch (error) {
